@@ -40,8 +40,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
-      /// simple version of Xmpp chat client from sampath kumar
-
+      /// simple version of Xmpp chat client 
         m_handler = new Handler();
 		try {
 			initConnection();
