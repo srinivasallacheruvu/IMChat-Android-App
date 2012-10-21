@@ -1,0 +1,106 @@
+package com.example.imchatclient;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jivesoftware.smack.ConnectionConfiguration;
+import org.jivesoftware.smack.PacketListener;
+import org.jivesoftware.smack.XMPPConnection;
+import org.jivesoftware.smack.XMPPException;
+import org.jivesoftware.smack.filter.MessageTypeFilter;
+import org.jivesoftware.smack.filter.PacketFilter;
+import org.jivesoftware.smack.packet.Packet;
+import org.jivesoftware.smack.util.StringUtils;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.provider.ContactsContract.Presence;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+
+public class MainActivity extends Activity {
+	private final static String SERVER_HOST = "talk.google.com";
+	private final static int SERVER_PORT = 5222;
+	private final static String SERVICE_NAME = "gmail.com";	
+	private final static String LOGIN = "xxxxx.xxxxx@gmail.com";
+	private final static String PASSWORD = "xxxxx";
+
+
+	private List<String> m_discussionThread;
+	private ArrayAdapter<String> m_discussionThreadAdapter;
+	private XMPPConnection m_connection;
+	private Handler m_handler;
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+        m_handler = new Handler();
+		try {
+			initConnection();
+		} catch (XMPPException e) {
+			e.printStackTrace();
+		}
+		
+		final EditText recipient = (EditText) this.findViewById(R.id.recipient);
+		final EditText message = (EditText) this.findViewById(R.id.message);		
+		ListView list = (ListView) this.findViewById(R.id.thread);
+		
+		m_discussionThread = new ArrayList<String>();
+		m_discussionThreadAdapter = new ArrayAdapter<String>(this,
+				R.layout.multi_line_list_item, m_discussionThread);
+		list.setAdapter(m_discussionThreadAdapter);
+		
+		Button send = (Button) this.findViewById(R.id.send);
+		send.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View view) {
+				String to = recipient.getText().toString();
+				String text = message.getText().toString();
+		
+				Message msg = new Message(to, Message.Type.chat);
+				msg.setBody(text);
+				m_connection.sendPacket(msg);
+				m_discussionThread.add("moi :");
+				m_discussionThread.add(text);
+				m_discussionThreadAdapter.notifyDataSetChanged();
+			}
+		});
+	}
+
+
+	private void initConnection() throws XMPPException {
+		//Initialisation de la connexion
+        ConnectionConfiguration config =
+                new ConnectionConfiguration(SERVER_HOST, SERVER_PORT, SERVICE_NAME);
+        m_connection = new XMPPConnection(config);
+        m_connection.connect();
+        m_connection.login(LOGIN, PASSWORD);
+        Packet presence = new Presence(Presence.Type.available);
+        m_connection.sendPacket(presence);
+       
+        //enregistrement de l'écouteur de messages
+		PacketFilter filter = new MessageTypeFilter(Message.Type.chat);
+		m_connection.addPacketListener(new PacketListener() {
+				public void processPacket(Packet packet) {
+					Message message = (Message) packet;
+					if (message.getBody() != null) {
+						String fromName = StringUtils.parseBareAddress(message
+								.getFrom());
+						m_discussionThread.add(fromName + ":");
+						m_discussionThread.add(message.getBody());
+						
+						m_handler.post(new Runnable() {
+							public void run() {
+								m_discussionThreadAdapter.notifyDataSetChanged();
+							}
+						});
+					}
+				}
+			}, filter);
+	}
+
+}
